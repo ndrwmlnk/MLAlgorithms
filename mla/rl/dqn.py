@@ -1,5 +1,7 @@
 import logging
 import random
+import time
+import sys
 
 import gym
 import numpy as np
@@ -10,6 +12,9 @@ np.random.seed(9999)
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+fh = logging.FileHandler('logger.log')
+fh.setLevel(logging.DEBUG)
+logger.addHandler(fh)
 
 """
 References:
@@ -18,8 +23,7 @@ References:
 
 
 class DQN(object):
-    def __init__(self, n_episodes=500, gamma=0.99, batch_size=32, epsilon=1., decay=0.005, min_epsilon=0.1,
-                 memory_limit=500):
+    def __init__(self, n_episodes=500, gamma=0.99, batch_size=32, epsilon=1., decay=0.005, min_epsilon=0.1, memory_limit=500, verbose=True):
         """Deep Q learning implementation.
 
         Parameters
@@ -35,6 +39,11 @@ class DQN(object):
             Limit of experience replay memory.
 
         """
+
+        if verbose:
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setLevel(logging.DEBUG)
+            logger.addHandler(handler)
 
         self.memory_limit = memory_limit
         self.min_epsilon = min_epsilon
@@ -59,9 +68,15 @@ class DQN(object):
         self.model = model(self.n_actions, self.batch_size)
 
     def train(self, render=False):
+
         max_reward = 0
 
+        t = time.time()
+        elapsed = -10
+        ep_rewards = []
+        # do stuff
         for ep in range(self.n_episodes):
+
             state = self.env.reset()
 
             total_reward = 0
@@ -117,6 +132,7 @@ class DQN(object):
                     # Exit from current episode
                     break
 
+            ep_rewards.append(total_reward)
             # Remove old entries from replay memory
             while len(self.replay) > self.memory_limit:
                 self.replay.pop(0)
@@ -124,9 +140,15 @@ class DQN(object):
             self.epsilon = self.min_epsilon + (1.0 - self.min_epsilon) * np.exp(-self.decay * ep)
 
             max_reward = max(max_reward, total_reward)
-            logger.info('Episode: %s, reward %s,  epsilon %s, max reward %s' % (ep, total_reward,
-                                                                                self.epsilon, max_reward))
-        logging.info('Training finished.')
+
+            logger.info('Episode: %s, reward %s,  epsilon %s, max reward %s' % (ep, int(total_reward), round(self.epsilon,2), int(max_reward)))
+            if False: # verbose
+                elapsed_new = time.time() - t
+                if elapsed_new - elapsed >= 10:  # print training progress every X seconds
+                    print('training', 'episode', ep, '/', self.n_episodes, ' - ', 'mean 100 last rewards / max reward', int(np.mean(ep_rewards[-100:])), '/', max_reward, ' - ', 'training time', round(elapsed_new), 'sec')
+                    elapsed += 10
+
+        # logging.info('Training finished.')
 
     def play(self, episodes):
         for i in range(episodes):
@@ -141,4 +163,5 @@ class DQN(object):
                 if done:
                     break
             logger.info('Episode: %s, reward %s' % (i, total_reward))
+        logging.info('Play finished.')
         self.env.close()
