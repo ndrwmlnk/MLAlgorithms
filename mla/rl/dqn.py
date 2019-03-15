@@ -141,7 +141,11 @@ class DQN(object):
 
             max_reward = max(max_reward, total_reward)
 
-            logger.info('Episode: %s, reward %s,  epsilon %s, max reward %s' % (ep, int(total_reward), round(self.epsilon,2), int(max_reward)))
+            logger.info('Episode: %s, reward %s, epsilon %s, max reward %s' % (ep, int(total_reward), round(self.epsilon,2), int(max_reward)))
+
+            if ep > 10 and np.mean(ep_rewards[-10:]) > 450:
+                break
+
             if False: # verbose
                 elapsed_new = time.time() - t
                 if elapsed_new - elapsed >= 10:  # print training progress every X seconds
@@ -151,6 +155,10 @@ class DQN(object):
         # logging.info('Training finished.')
 
     def play(self, episodes):
+        import pygame
+        pygame.init()
+
+        reward_stack = []
         for i in range(episodes):
             state = self.env.reset()
             total_reward = 0
@@ -160,8 +168,20 @@ class DQN(object):
                 action = np.argmax(self.model.predict(state[np.newaxis, :])[0])
                 state, reward, done, _ = self.env.step(action)
                 total_reward += reward
+
+                for event in pygame.event.get():
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
+                            done=True
+                            self.env.close()
+                            pygame.quit()
+                            sys.exit()
+
                 if done:
+                    reward_stack.append(total_reward)
                     break
             logger.info('Episode: %s, reward %s' % (i, total_reward))
         logging.info('Play finished.')
         self.env.close()
+        pygame.quit()
+        return reward_stack
